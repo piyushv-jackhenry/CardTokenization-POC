@@ -1,0 +1,22 @@
+﻿swagger: '2.0'
+info:
+  version: 1.0.0
+  title: Card Tokenization Service
+  description: API for securely generating and managing payment card tokens.
+host: cardtoken.endpoints.cardtoken-poc.cloud.goog
+schemes:
+  - https
+produces:
+  - application/json
+paths:
+  /tokenize:
+    get:
+      summary: Generate a card token
+      operationId: generateCardToken
+      x-google-backend:
+        address: https://cardtoken.apigateway.cardtoken-poc.cloud.goog/tokenize
+      responses:
+        '200':
+          description: A successful response with the generated token
+          schema:
+            type: string
