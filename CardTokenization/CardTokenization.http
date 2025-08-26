@@ -1,0 +1,6 @@
+@CardTokenization_HostAddress = http://localhost:5260
+
+GET {{CardTokenization_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
