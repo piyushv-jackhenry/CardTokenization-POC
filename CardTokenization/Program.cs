@@ -36,6 +36,9 @@ app.MapGet("/weatherforecast", () =>
 .WithName("GetWeatherForecast")
 .WithOpenApi();
 
+var port = Environment.GetEnvironmentVariable("Port") ?? "8080";
+app.Urls.Add($"http://0.0.0.0:{port}");
+
 app.Run();
 
 internal record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
