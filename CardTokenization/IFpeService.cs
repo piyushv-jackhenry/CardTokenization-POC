@@ -30,18 +30,18 @@ internal class FpeNetService : IFpeService
 
         _ff1 = new(radix, maxTlen);
     }
-    public string Encrypt(string pan, string tweak)
+    public string Encrypt(string cardNumber, string tweak)
     {
-        pan = new string([.. pan.Where(char.IsDigit)]);
-        if (pan.Length < 12 || pan.Length > 19) throw new ArgumentException("PAN length must be between 12 and 19 digits.", nameof(pan));
+        cardNumber = new string([.. cardNumber.Where(char.IsDigit)]);
+        if (cardNumber.Length < 12 || cardNumber.Length > 19) throw new ArgumentException("Card number length must be between 12 and 19 digits.", nameof(cardNumber));
 
         var tweakBytes = Encoding.UTF8.GetBytes(tweak);
         if (tweakBytes.Length > 16)
             tweakBytes = SHA256.HashData(tweakBytes)[..16];
 
-        string bin = pan[..6];
-        string middle = pan[6..^4];
-        string last4 = pan[^4..];
+        string bin = cardNumber[..6];
+        string middle = cardNumber[6..^4];
+        string last4 = cardNumber[^4..];
 
         int[] middleDigits = [.. middle.Select(c => c - '0')];
         int[] encryptedMiddleDigits = _ff1.encrypt(_keyBytes, tweakBytes, middleDigits);

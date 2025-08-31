@@ -26,43 +26,49 @@ app.MapGet("/ping", () => Results.Ok(new { ok = true, now = DateTime.UtcNow }))
 .WithOpenApi(); ;
 
 
-app.MapPost("/tokenize", async ([FromBody] TokenRequest req, ITokenizationService svc) =>
+app.MapPost("/tokenize", async ([FromBody] Request req, ITokenizationService svc) =>
 {
-    if (req?.CardNumber is null) return Results.BadRequest("Card number is required.");
+    if (req.CardNumbers == null || req.CardNumbers.Count == 0)
+        return Results.BadRequest(new { Error = "Card number is required." });
+
     try
     {
-        var result = svc.TokenizeAsync(req.CardNumber);
-        return Results.Ok(new TokenizeResponse
-        {
-            FpeToken = result.FpeToken,
-            OpaqueToken = result.OpaqueToken,
-            CreatedUtc = result.CreatedUtc
-        });
+        List<TokenEntity> results = [];
+        foreach (var cn in req.CardNumbers)
+            results.Add(svc.TokenizeAsync(cn, req.CreateIfNotFound));
+
+        return Results.Ok(new { Data = results });
     }
-    catch (ArgumentException ex) { return Results.BadRequest(ex.Message); }
-    catch (Exception ex) { return Results.Problem(ex.Message, statusCode: 500); }
+    catch (Exception ex)
+    {
+        return Results.Json(new { Error = ex.Message }, statusCode: 500);
+    }
 })
  .WithName("tokenize")
  .WithOpenApi();
 
 
-app.MapPost("/detokenize", async (TokenRequest req, ITokenizationService svc) =>
+app.MapPost("/detokenize", async (Request req, ITokenizationService svc) =>
 {
-    if (req?.Token is null) return Results.BadRequest("Card number is required.");
+    if (req.Tokens == null || req.Tokens.Count == 0)
+        return Results.BadRequest(new { Error = "Token is required." });
+
     try
     {
-        var pan = svc.DetokenizeAsync(req.Token);
-        if (pan is null) return Results.NotFound();
-        return Results.Ok(new TokenizeResponse
+        List<TokenEntity> results = [];
+        foreach (var t in req.Tokens)
         {
-            Pan = pan.Pan,
-            FpeToken = pan.FpeToken,
-            OpaqueToken = pan.OpaqueToken,
-            CreatedUtc = pan.CreatedUtc
-        });
+            var tokenEntity = svc.DetokenizeAsync(t);
+            if (tokenEntity is not null)
+                results.Add(tokenEntity);
+        }
+
+        return Results.Ok(new { Data = results });
     }
-    catch (ArgumentException ex) { return Results.BadRequest(ex.Message); }
-    catch (Exception ex) { return Results.Problem(ex.Message, statusCode: 500); }
+    catch (Exception ex)
+    {
+        return Results.Json(new { Error = ex.Message }, statusCode: 500);
+    }
 })
  .WithName("detokenize")
  .WithOpenApi();
