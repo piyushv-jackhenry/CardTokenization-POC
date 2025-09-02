@@ -14,7 +14,15 @@ public class DbService : IDbService
 
     public DbService(IConfiguration configuration)
     {
+        var db = Environment.GetEnvironmentVariable("DB");
+        var user = Environment.GetEnvironmentVariable("DB_USER");
+        var password = Environment.GetEnvironmentVariable("DB_PASSWORD");
+        _connectionString = $"Server=localhost;Database={db};User Id={user};Password={password};";
+
+
+#if DEBUG
         _connectionString = configuration.GetConnectionString("DefaultConnection");
+#endif
     }
 
     public async Task<List<T>> ExecuteQueryAsync<T>(string queryOrProc, Dictionary<string, object>? parameters = null, bool isStoredProc = false)
