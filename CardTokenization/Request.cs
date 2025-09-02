@@ -23,6 +23,4 @@
                 _tokens.AddRange(value.Where(x => !string.IsNullOrEmpty(x)).Distinct());
         }
     }
-
-    public bool CreateIfNotFound { get; set; } = true;
 }

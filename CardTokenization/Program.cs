@@ -7,8 +7,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddSingleton<IDbService, DbService>();
 builder.Services.AddSingleton<IFpeService, FpeNetService>();
-builder.Services.AddSingleton<ITokenizationService, TokenizationService>();
+builder.Services.AddSingleton<ITokenService, TokenService>();
 
 var app = builder.Build();
 
@@ -26,7 +27,7 @@ app.MapGet("/ping", () => Results.Ok(new { ok = true, now = DateTime.UtcNow }))
 .WithOpenApi(); ;
 
 
-app.MapPost("/tokenize", async ([FromBody] Request req, ITokenizationService svc) =>
+app.MapPost("/tokenize", async ([FromBody] Request req, ITokenService svc) =>
 {
     if (req.CardNumbers == null || req.CardNumbers.Count == 0)
         return Results.BadRequest(new { Error = "Card number is required." });
@@ -35,7 +36,7 @@ app.MapPost("/tokenize", async ([FromBody] Request req, ITokenizationService svc
     {
         List<TokenEntity> results = [];
         foreach (var cn in req.CardNumbers)
-            results.Add(svc.TokenizeAsync(cn, req.CreateIfNotFound));
+            results.Add(await svc.TokenizeAsync(cn));
 
         return Results.Ok(new { Data = results });
     }
@@ -48,7 +49,7 @@ app.MapPost("/tokenize", async ([FromBody] Request req, ITokenizationService svc
  .WithOpenApi();
 
 
-app.MapPost("/detokenize", async (Request req, ITokenizationService svc) =>
+app.MapPost("/detokenize", async (Request req, ITokenService svc) =>
 {
     if (req.Tokens == null || req.Tokens.Count == 0)
         return Results.BadRequest(new { Error = "Token is required." });
@@ -60,7 +61,7 @@ app.MapPost("/detokenize", async (Request req, ITokenizationService svc) =>
         {
             var tokenEntity = svc.DetokenizeAsync(t);
             if (tokenEntity is not null)
-                results.Add(tokenEntity);
+                results.Add(await tokenEntity);
         }
 
         return Results.Ok(new { Data = results });
