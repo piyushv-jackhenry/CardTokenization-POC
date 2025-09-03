@@ -131,4 +131,14 @@ BEGIN
 END
 
 
+CREATE OR ALTER PROCEDURE [dbo].[GetCard]
+  @ID BIGINT
+AS
+BEGIN
+  SET NOCOUNT ON;
+  
+  SELECT CardNumber FROM Cards WHERE ID = @ID
+  
+END
+
 
