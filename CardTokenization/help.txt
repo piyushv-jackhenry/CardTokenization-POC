@@ -1,0 +1,134 @@
+﻿gcloud config set project cpsapps
+
+gcloud compute addresses create google-managed-services-range --global --prefix-length=24 --description="IP range for private services access" --network=default --purpose=VPC_PEERING
+
+gcloud services vpc-peerings connect --network=default --service=servicenetworking.googleapis.com --ranges=google-managed-services-range
+
+--SQL
+gcloud services enable sqladmin.googleapis.com
+gcloud sql instances create sqlserver --database-version=SQLSERVER_2019_EXPRESS --tier=db-custom-2-3840 --region=us-east1 --storage-size=20GB --network=default --root-password=MyStrongPass123!
+gcloud sql instances describe sqlserver --format="value(connectionName)"
+gcloud sql databases create CardTokenization --instance=sqlserver
+
+-- Cloud Run
+gcloud compute networks vpc-access connectors create cloudrun-vpc-connector --region=us-east1 --network=default --range=10.8.0.0/28  
+gcloud compute networks vpc-access connectors describe cloudrun-vpc-connector --region=us-east1	
+gcloud run deploy card-token-api --source . --add-cloudsql-instances cpsapps:us-east1:sqlserver --vpc-connector cloudrun-vpc-connector --vpc-egress all-traffic --region us-east1 --no-allow-unauthenticated --platform managed 
+  
+-- Give access to SQL
+gcloud projects add-iam-policy-binding card-token-api --member="serviceAccount:223887898891-compute@developer.gserviceaccount.com" --role="roles/cloudsql.client"
+
+-- Caller account (Consumer)
+gcloud iam service-accounts create card-token-api-caller --display-name "Service account for calling API"
+gcloud run services add-iam-policy-binding card-token-api --region us-east1 --member "serviceAccount:card-token-api-caller@cpsapps.iam.gserviceaccount.com" --role roles/run.invoker
+gcloud iam service-accounts add-iam-policy-binding card-token-api-caller@cpsapps.iam.gserviceaccount.com --member="user:piyushv.jackhenry@gmail.com" --role="roles/iam.serviceAccountTokenCreator" --project=cpsapps
+gcloud auth print-identity-token --impersonate-service-account=card-token-api-caller@cpsapps.iam.gserviceaccount.com
+
+
+---extra
+--set-env-vars "DB_CONNECTION_STRING='Server=10.6.86.3,1433;Database=CardTokenization;User Id=sqladmin;Password=StrongPassword!;'" 
+gcloud projects add-iam-policy-binding cpsapps --member="serviceAccount:cpsapps@appspot.gserviceaccount.com" --role="roles/vpcaccess.user"
+------------sql
+
+-- Create a login at the server level
+CREATE LOGIN sqladmin WITH PASSWORD = 'StrongPassword!';
+
+-- Create a user in the specific database
+USE CardTokenization;
+CREATE USER sqladmin FOR LOGIN sqladmin;
+
+USE [CardTokenization];
+ALTER ROLE db_owner ADD MEMBER [sqladmin];
+
+
+CREATE TABLE Tokens 
+	( 
+		ID bigint IDENTITY,
+		CardID bigint NOT NULL,
+		Bin varchar(50) NOT NULL,
+		Hash varchar(200) NOT NULL,
+		Token varchar(100) NOT NULL,
+		FpeCardNumber varchar(100) NOT NULL,    
+		CreatedUtc DateTime
+		CONSTRAINT [DF_Tokens_CreatedUtc] DEFAULT(GETDATE()) NOT NULL,
+    );
+
+CREATE TABLE Cards 
+	( 
+		ID bigint IDENTITY,
+		CardNumber varchar(200) NOT NULL,
+		CreatedUtc DateTime
+		CONSTRAINT [DF_Cards_CreatedUtc] DEFAULT(GETDATE()) NOT NULL,
+    );
+	
+	
+
+CREATE OR ALTER PROCEDURE [dbo].[GetToken]
+	@ID BIGINT = null,
+	@Hash VARCHAR(200) = null,
+	@Token VARCHAR(100) = null,
+	@FpeCardNumber VARCHAR(100) = null
+	
+AS
+BEGIN
+
+	IF @ID IS NULL AND COALESCE(@Hash, @Token, @FpeCardNumber) IS NULL
+		THROW 50001, 'Input required.', 1
+	
+	SELECT CardID, Bin, Token, FpeCardNumber, CreatedUtc 
+		FROM Tokens
+		WHERE	(@ID IS NULL OR ID = @ID)
+			AND (@Hash IS NULL OR [Hash] = @Hash)
+			AND (@Token IS NULL OR Token = @Token)
+			AND (@FpeCardNumber IS NULL OR FpeCardNumber = @FpeCardNumber)
+
+END
+
+
+CREATE OR ALTER PROCEDURE CreateToken
+    @CardID BIGINT,
+    @Bin VARCHAR(50),
+    @HASH VARCHAR(200),
+    @Token VARCHAR(100) = NULL,
+    @FpeCardNumber VARCHAR(100) = NULL
+AS
+BEGIN
+
+    SET NOCOUNT ON;
+  
+    INSERT INTO Tokens (
+        CardID,
+        Bin,
+        [HASH],
+        Token,
+        FpeCardNumber,
+        CreatedUtc
+    )
+    VALUES (
+        @CardID,
+        @Bin,
+        @HASH,
+        @Token,
+        @FpeCardNumber,
+        GETUTCDATE()
+    );
+
+    DECLARE @ID BIGINT = CAST(SCOPE_IDENTITY() AS BIGINT);
+	EXEC GetToken @ID = @ID
+END;
+
+
+CREATE OR ALTER PROCEDURE [dbo].[CreateCard]
+  @CardNumber VARCHAR(200)
+AS
+BEGIN
+  SET NOCOUNT ON;
+  
+  INSERT INTO Cards (CardNumber, CreatedUtc)
+  VALUES(@CardNumber, GetUtcDate())
+
+  SELECT CAST(SCOPE_IDENTITY() AS BIGINT) AS NewCardId;
+END
+
+
+
