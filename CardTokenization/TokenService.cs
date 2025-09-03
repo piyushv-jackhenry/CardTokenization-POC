@@ -4,7 +4,7 @@ using System.Text;
 internal interface ITokenService
 {
     Task<TokenEntity> TokenizeAsync(string cardNumber);
-    Task<TokenEntity> DetokenizeAsync(string token);
+    Task<CardTokenEntity> DetokenizeAsync(string token);
 }
 
 internal class TokenService : ITokenService
@@ -24,12 +24,12 @@ internal class TokenService : ITokenService
         if (digits.Length < 12 || digits.Length > 19) throw new ArgumentException("Card number length must be between 12 and 19 digits.", nameof(cardNumber));
 
         var hash = cardNumber.ComputeHash();
-        var tokens = await _db.ExecuteQueryAsync<TokenEntity>("GetToken", new() { { "Hash", hash } }, true);
+        var tokens = await _db.ExecuteQueryAsync<TokenEntity>("GetToken", new() { { "Hash", hash } });
 
         if (tokens?.Any() ?? false)
             return tokens.First();
 
-        var cardId = await _db.ExecuteQueryAsync<long>("CreateCard", new() { { "CardNumber", cardNumber } }, true);
+        var cardId = await _db.ExecuteQueryAsync<long>("CreateCard", new() { { "CardNumber", cardNumber } });
 
         var bin = cardNumber[..6];
         var opaquetoken = GenerateToken();
@@ -49,14 +49,21 @@ internal class TokenService : ITokenService
         return tokens.First();
     }
 
-    public async Task<TokenEntity> DetokenizeAsync(string token)
+    public async Task<CardTokenEntity> DetokenizeAsync(string token)
     {
         var tokens = token.All(char.IsDigit)
-                        ? await _db.ExecuteQueryAsync<TokenEntity>("GetToken", new() { { "FpeCardNumber", token } }, true)
-                        : await _db.ExecuteQueryAsync<TokenEntity>("GetToken", new() { { "Token", token } }, true);
+                        ? await _db.ExecuteQueryAsync<CardTokenEntity>("GetToken", new() { { "FpeCardNumber", token } })
+                        : await _db.ExecuteQueryAsync<CardTokenEntity>("GetToken", new() { { "Token", token } });
+
+
 
         if (tokens?.Any() ?? false)
-            return tokens.First();
+        {
+            var tokenEntity = tokens.First();
+            var cardNumber = await _db.ExecuteQueryAsync<string>("GetCard", new() { { "ID", tokenEntity.CardID } });
+            tokenEntity.CardNumber = cardNumber.First();
+            return tokenEntity;
+        }
 
         return null;
     }

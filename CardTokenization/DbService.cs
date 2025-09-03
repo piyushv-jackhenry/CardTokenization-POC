@@ -1,12 +1,11 @@
 ﻿using FastMember;
 using System.Data;
 using Microsoft.Data.SqlClient;
-using System.Security.Cryptography;
 
 public interface IDbService
 {
-    Task<List<T>> ExecuteQueryAsync<T>(string queryOrProc, Dictionary<string, object>? parameters = null, bool isStoredProc = false);
-    Task<int> ExecuteNonQueryAsync(string queryOrProc, Dictionary<string, object>? parameters = null, bool isStoredProc = false);
+    Task<List<T>> ExecuteQueryAsync<T>(string queryOrProc, Dictionary<string, object>? parameters = null, bool isStoredProc = true);
+    Task<int> ExecuteNonQueryAsync(string queryOrProc, Dictionary<string, object>? parameters = null, bool isStoredProc = true);
 }
 
 public class DbService : IDbService
@@ -25,7 +24,7 @@ public class DbService : IDbService
         Console.WriteLine("Connection string: "+ _connectionString);
     }
 
-    public async Task<List<T>> ExecuteQueryAsync<T>(string queryOrProc, Dictionary<string, object>? parameters = null, bool isStoredProc = false)
+    public async Task<List<T>> ExecuteQueryAsync<T>(string queryOrProc, Dictionary<string, object>? parameters = null, bool isStoredProc = true)
     {
         var result = new List<T>();
         using var conn = new SqlConnection(_connectionString);
@@ -88,7 +87,7 @@ public class DbService : IDbService
         return result;
     }
 
-    public async Task<int> ExecuteNonQueryAsync(string queryOrProc, Dictionary<string, object>? parameters = null, bool isStoredProc = false)
+    public async Task<int> ExecuteNonQueryAsync(string queryOrProc, Dictionary<string, object>? parameters = null, bool isStoredProc = true)
     {
         using var conn = new SqlConnection(_connectionString);
         using var cmd = new SqlCommand(queryOrProc, conn);

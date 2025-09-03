@@ -56,7 +56,7 @@ app.MapPost("/detokenize", async (Request req, ITokenService svc) =>
 
     try
     {
-        List<TokenEntity> results = [];
+        List<CardTokenEntity> results = [];
         foreach (var t in req.Tokens)
         {
             var tokenEntity = await svc.DetokenizeAsync(t);
